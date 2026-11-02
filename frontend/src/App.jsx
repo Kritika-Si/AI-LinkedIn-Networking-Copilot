@@ -1,6 +1,8 @@
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import './App.css'
+
+const API_BASE_URL = 'http://127.0.0.1:8000'
 
 const initialConnections = [
   {
@@ -33,11 +35,104 @@ function App() {
   const [activePage, setActivePage] = useState('Dashboard')
   const [profile, setProfile] = useState('')
   const [careerGoal, setCareerGoal] = useState('')
+  const [profileId, setProfileId] = useState(null)
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true)
+  const [isSavingProfile, setIsSavingProfile] = useState(false)
+  const [profileStatus, setProfileStatus] = useState('')
+  const [profileStatusType, setProfileStatusType] = useState('')
+
   const [search, setSearch] = useState('')
   const [selectedPerson, setSelectedPerson] = useState(initialConnections[0])
   const [message, setMessage] = useState(
     "Hi Sarah, I came across your profile and was impressed by your work at Google. I'm a Computer Science student specializing in AI and Data Science, and I'm exploring opportunities in this field. I'd love to connect and learn from your experience. Thank you!"
   )
+
+  // Load saved profile information from the backend
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/profiles/`)
+
+        if (!response.ok) {
+          throw new Error('Unable to load profile information.')
+        }
+
+        const profiles = await response.json()
+
+        if (profiles.length > 0) {
+          const savedProfile = profiles[0]
+
+          setProfileId(savedProfile.id)
+          setProfile(savedProfile.linkedin_profile || '')
+          setCareerGoal(savedProfile.career_goals || '')
+        }
+      } catch (error) {
+        console.error('Profile loading error:', error)
+        setProfileStatus('Could not load profile. Please check the backend connection.')
+        setProfileStatusType('error')
+      } finally {
+        setIsLoadingProfile(false)
+      }
+    }
+
+    loadProfile()
+  }, [])
+
+  // Save a new profile or update an existing profile
+  const handleSaveProfile = async () => {
+    if (!profile.trim()) {
+      setProfileStatus('Please enter your LinkedIn profile information.')
+      setProfileStatusType('error')
+      return
+    }
+
+    setIsSavingProfile(true)
+    setProfileStatus('')
+
+    const profileData = {
+      linkedin_profile: profile,
+      career_goals: careerGoal,
+    }
+
+    try {
+      const isUpdating = profileId !== null
+
+      const response = await fetch(
+        isUpdating
+          ? `${API_BASE_URL}/api/profiles/${profileId}`
+          : `${API_BASE_URL}/api/profiles/`,
+        {
+          method: isUpdating ? 'PUT' : 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(profileData),
+        }
+      )
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(
+          result.detail || 'Something went wrong while saving your profile.'
+        )
+      }
+
+      setProfileId(result.id)
+      setProfileStatus(
+        isUpdating
+          ? 'Profile updated successfully!'
+          : 'Profile saved successfully!'
+      )
+      setProfileStatusType('success')
+    } catch (error) {
+      console.error('Profile saving error:', error)
+      setProfileStatus(error.message || 'Unable to save your profile.')
+      setProfileStatusType('error')
+    } finally {
+      setIsSavingProfile(false)
+    }
+  }
 
   const navigation = [
     { name: 'Dashboard', icon: '▦' },
@@ -294,6 +389,7 @@ function App() {
                 <p className="form-description">
                   Copy and paste your profile information below.
                 </p>
+
                 <label htmlFor="profile">Profile information</label>
                 <textarea
                   id="profile"
@@ -314,10 +410,29 @@ function App() {
 
                 <button
                   className="primary-button"
-                  onClick={() => alert('Profile details saved in this session!')}
+                  onClick={handleSaveProfile}
+                  disabled={isSavingProfile || isLoadingProfile}
                 >
-                  Save profile details
+                  {isLoadingProfile
+                    ? 'Loading profile...'
+                    : isSavingProfile
+                      ? 'Saving...'
+                      : profileId
+                        ? 'Update profile details'
+                        : 'Save profile details'}
                 </button>
+
+                {profileStatus && (
+                  <p
+                    role="status"
+                    style={{
+                      marginTop: '14px',
+                      color: profileStatusType === 'success' ? 'green' : 'red',
+                    }}
+                  >
+                    {profileStatus}
+                  </p>
+                )}
               </div>
             </section>
           )}
