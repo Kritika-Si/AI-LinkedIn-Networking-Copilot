@@ -1,96 +1,42 @@
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from database import get_db
 from models import UserProfile
-from schemas import UserProfileCreate, UserProfileResponse
+from services.recommendation_engine import generate_recommendations
 
 
 router = APIRouter(
-    prefix="/api/profiles",
-    tags=["Profiles"]
+    prefix="/api/recommendations",
+    tags=["Recommendations"]
 )
 
 
-# Create a new profile
-@router.post("/", response_model=UserProfileResponse)
-def create_profile(
-    profile: UserProfileCreate,
-    db: Session = Depends(get_db)
-):
-    new_profile = UserProfile(**profile.model_dump())
+# Generate recommendations using the saved user profile
+@router.get("/")
+def get_recommendations(db: Session = Depends(get_db)):
 
-    db.add(new_profile)
-    db.commit()
-    db.refresh(new_profile)
-
-    return new_profile
-
-
-# Get all profiles
-@router.get("/", response_model=list[UserProfileResponse])
-def get_profiles(db: Session = Depends(get_db)):
-    return db.query(UserProfile).all()
-
-
-# Get a profile by ID
-@router.get("/{profile_id}", response_model=UserProfileResponse)
-def get_profile(profile_id: int, db: Session = Depends(get_db)):
-    profile = db.query(UserProfile).filter(
-        UserProfile.id == profile_id
+    # Retrieve the saved profile
+    profile = db.query(UserProfile).order_by(
+        UserProfile.id.desc()
     ).first()
 
     if profile is None:
         raise HTTPException(
             status_code=404,
-            detail="Profile not found"
+            detail="Please save your profile before generating recommendations."
         )
 
-    return profile
-
-
-# Update a profile
-@router.put("/{profile_id}", response_model=UserProfileResponse)
-def update_profile(
-    profile_id: int,
-    updated_data: UserProfileCreate,
-    db: Session = Depends(get_db)
-):
-    profile = db.query(UserProfile).filter(
-        UserProfile.id == profile_id
-    ).first()
-
-    if profile is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Profile not found"
-        )
-
-    for key, value in updated_data.model_dump().items():
-        setattr(profile, key, value)
-
-    db.commit()
-    db.refresh(profile)
-
-    return profile
-
-
-# Delete a profile
-@router.delete("/{profile_id}")
-def delete_profile(profile_id: int, db: Session = Depends(get_db)):
-    profile = db.query(UserProfile).filter(
-        UserProfile.id == profile_id
-    ).first()
-
-    if profile is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Profile not found"
-        )
-
-    db.delete(profile)
-    db.commit()
+    # Generate ranked recommendations
+    recommendations = generate_recommendations(
+        profile.linkedin_profile,
+        profile.career_goals or ""
+    )
 
     return {
-        "message": "Profile deleted successfully"
+        "message": "Recommendations generated successfully",
+        "profile_id": profile.id,
+        "total_recommendations": len(recommendations),
+        "recommendations": recommendations
     }
