@@ -6,7 +6,7 @@ from database import Base, engine
 import models
 
 from routers.profiles import router as profiles_router
-
+from routers.recommendations import router as recommendations_router
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
@@ -32,7 +32,7 @@ app.add_middleware(
 
 # Register Profile API routes
 app.include_router(profiles_router)
-
+app.include_router(recommendations_router)
 
 @app.get("/")
 def home():
