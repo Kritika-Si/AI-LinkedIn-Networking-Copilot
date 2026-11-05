@@ -37,6 +37,11 @@ function App() {
   const [selectedPerson, setSelectedPerson] = useState(defaultPerson)
   const [message, setMessage] = useState('')
 
+  // Message customization states
+  const [messageTone, setMessageTone] = useState('Professional')
+  const [messageType, setMessageType] = useState('Recruiter Outreach')
+  const [connectionReason, setConnectionReason] = useState('')
+
   // Load saved profile information
   useEffect(() => {
     const loadProfile = async () => {
@@ -207,15 +212,47 @@ function App() {
     setActivePage(page)
   }
 
-  // Generate a message for the selected professional
+  // Generate a personalized networking message
+  const generatePersonalizedMessage = (
+    person = selectedPerson,
+    customReason = connectionReason
+  ) => {
+    const firstName = person.name.split(' ')[0]
+
+    const toneOpening = {
+      Professional: `Hello ${firstName}, I came across your professional profile and was interested in your work at ${person.company}.`,
+      Friendly: `Hi ${firstName}! I came across your profile and would love to connect with you.`,
+      Confident: `Hello ${firstName}, your experience at ${person.company} caught my attention, and I would value the opportunity to connect.`,
+    }
+
+    const reasonText = customReason.trim()
+
+    const reason = reasonText
+      ? `${reasonText.replace(/[.!?]+$/, '')}.`
+      : `I am interested in learning from professionals working in ${person.role.toLowerCase()}.`
+
+    const purpose =
+      messageType === 'Recruiter Outreach'
+        ? 'I am exploring fresher opportunities in AI, Data Science and related fields.'
+        : 'I am interested in learning about your professional journey and exchanging insights.'
+
+    const closing = {
+      Professional: 'I would appreciate the opportunity to connect. Thank you for your time.',
+      Friendly: 'It would be great to connect and learn from your experience. Thanks!',
+      Confident: 'I look forward to connecting and learning from your insights. Thank you.',
+    }
+
+    const generatedMessage = `${toneOpening[messageTone]} ${reason} I am currently pursuing B.Tech in Computer Science (AI & Data Science), with interests in Python, SQL and Machine Learning. ${purpose} ${closing[messageTone]}`
+
+    setMessage(generatedMessage)
+  }
+
+  // Select a professional and open the message generator
   const handleSelectPerson = (person) => {
     setSelectedPerson(person)
-
-    setMessage(
-      `Hi ${person.name.split(' ')[0]}, I came across your professional profile at ${person.company} and was impressed by your experience. I'm a Computer Science student specializing in AI and Data Science, and I'm exploring opportunities in this field. I'd love to connect and learn from your experience. Thank you!`
-    )
-
+    setConnectionReason('')
     setActivePage('Message Generator')
+    generatePersonalizedMessage(person, '')
   }
 
   // Reusable recommendation card
@@ -601,6 +638,82 @@ function App() {
               </p>
 
               <div className="panel message-panel">
+                {/* MESSAGE CUSTOMIZATION */}
+                <div
+                  className="message-customization"
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                    gap: '16px',
+                    marginBottom: '22px',
+                  }}
+                >
+                  <div className="form-group">
+                    <label htmlFor="messageType">Message type</label>
+                    <select
+                      id="messageType"
+                      value={messageType}
+                      onChange={(e) => setMessageType(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        border: '1px solid #d9dce5',
+                        borderRadius: '8px',
+                        background: '#fff',
+                        font: 'inherit',
+                      }}
+                    >
+                      <option value="Recruiter Outreach">Recruiter outreach</option>
+                      <option value="Professional Networking">Professional networking</option>
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="messageTone">Message tone</label>
+                    <select
+                      id="messageTone"
+                      value={messageTone}
+                      onChange={(e) => setMessageTone(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        border: '1px solid #d9dce5',
+                        borderRadius: '8px',
+                        background: '#fff',
+                        font: 'inherit',
+                      }}
+                    >
+                      <option value="Professional">Professional</option>
+                      <option value="Friendly">Friendly</option>
+                      <option value="Confident">Confident</option>
+                    </select>
+                  </div>
+
+                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                    <label htmlFor="connectionReason">
+                      Why do you want to connect? (optional)
+                    </label>
+                    <textarea
+                      id="connectionReason"
+                      rows="3"
+                      value={connectionReason}
+                      onChange={(e) => setConnectionReason(e.target.value)}
+                      placeholder="Example: I would love to learn about your experience in AI recruitment."
+                      style={{ width: '100%', boxSizing: 'border-box' }}
+                    />
+                  </div>
+
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <button
+                      className="primary-button"
+                      type="button"
+                      onClick={() => generatePersonalizedMessage()}
+                    >
+                      Generate personalized message
+                    </button>
+                  </div>
+                </div>
+
                 <div className="panel-heading">
                   <div>
                     <h2>Connection request message</h2>
