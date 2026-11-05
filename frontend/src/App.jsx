@@ -1,5 +1,4 @@
-
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import './App.css'
 
 const API_BASE_URL = 'http://127.0.0.1:8000'
@@ -21,6 +20,7 @@ function App() {
   // Profile states
   const [profile, setProfile] = useState('')
   const [careerGoal, setCareerGoal] = useState('')
+  const [preferredRoles, setPreferredRoles] = useState('')
   const [profileId, setProfileId] = useState(null)
   const [isLoadingProfile, setIsLoadingProfile] = useState(true)
   const [isSavingProfile, setIsSavingProfile] = useState(false)
@@ -60,6 +60,7 @@ function App() {
           setProfileId(savedProfile.id)
           setProfile(savedProfile.linkedin_profile || '')
           setCareerGoal(savedProfile.career_goals || '')
+          setPreferredRoles(savedProfile.preferred_roles || '')
         }
       } catch (error) {
         console.error('Profile loading error:', error)
@@ -128,6 +129,7 @@ function App() {
     const profileData = {
       linkedin_profile: profile,
       career_goals: careerGoal,
+      preferred_roles: preferredRoles,
     }
 
     try {
@@ -155,6 +157,8 @@ function App() {
       }
 
       setProfileId(result.id)
+      setPreferredRoles(result.preferred_roles || preferredRoles)
+
       setProfileStatus(
         isUpdating
           ? 'Profile updated successfully!'
@@ -194,11 +198,11 @@ function App() {
   }
 
   const navigation = [
-    { name: 'Dashboard', icon: '▦' },
-    { name: 'My Profile', icon: '◉' },
-    { name: 'Find Connections', icon: '◎' },
-    { name: 'Message Generator', icon: '✉' },
-    { name: 'Activity', icon: '↗' },
+    { name: 'Dashboard', icon: 'â–¦' },
+    { name: 'My Profile', icon: 'â—‰' },
+    { name: 'Find Connections', icon: 'â—Ž' },
+    { name: 'Message Generator', icon: 'âœ‰' },
+    { name: 'Activity', icon: 'â†—' },
   ]
 
   // Search through API recommendations
@@ -264,7 +268,7 @@ function App() {
 
       <div className="person-details">
         <strong>{person.name}</strong>
-        <span>{person.role} · {person.company}</span>
+        <span>{person.role} Â· {person.company}</span>
 
         {person.matched_skills?.length > 0 && (
           <small>
@@ -323,7 +327,7 @@ function App() {
 
         <div className="sidebar-bottom">
           <div className="help-card">
-            <div className="help-icon">✦</div>
+            <div className="help-icon">âœ¦</div>
             <h3>AI-powered networking</h3>
             <p>
               Build meaningful professional connections with smarter insights.
@@ -336,7 +340,7 @@ function App() {
               <strong>Your Workspace</strong>
               <span>Free Plan</span>
             </div>
-            <span className="more-icon">···</span>
+            <span className="more-icon">Â·Â·Â·</span>
           </div>
         </div>
       </aside>
@@ -353,7 +357,7 @@ function App() {
             </span>
 
             <button className="notification-button" aria-label="Notifications">
-              ♧
+              â™§
               <i></i>
             </button>
 
@@ -368,7 +372,7 @@ function App() {
               <section className="welcome-section">
                 <div>
                   <p className="eyebrow">YOUR PROFESSIONAL GROWTH</p>
-                  <h1>Good to see you! <span>✦</span></h1>
+                  <h1>Good to see you! <span>âœ¦</span></h1>
                   <p className="welcome-description">
                     Your AI networking assistant is ready to help you build
                     meaningful connections.
@@ -379,7 +383,7 @@ function App() {
                   className="primary-button"
                   onClick={() => setActivePage('Find Connections')}
                 >
-                  <span>✦</span> Find connections
+                  <span>âœ¦</span> Find connections
                 </button>
               </section>
 
@@ -387,7 +391,7 @@ function App() {
                 <div className="stat-card">
                   <div className="stat-top">
                     <span>Connections discovered</span>
-                    <span className="stat-icon lavender">◎</span>
+                    <span className="stat-icon lavender">â—Ž</span>
                   </div>
                   <h2>{connections.length}</h2>
                   <p>Based on your saved profile</p>
@@ -396,7 +400,7 @@ function App() {
                 <div className="stat-card">
                   <div className="stat-top">
                     <span>Messages generated</span>
-                    <span className="stat-icon blue-bg">✉</span>
+                    <span className="stat-icon blue-bg">âœ‰</span>
                   </div>
                   <h2>0</h2>
                   <p>Start creating messages</p>
@@ -405,7 +409,7 @@ function App() {
                 <div className="stat-card">
                   <div className="stat-top">
                     <span>Connection requests</span>
-                    <span className="stat-icon green-bg">↗</span>
+                    <span className="stat-icon green-bg">â†—</span>
                   </div>
                   <h2>0</h2>
                   <p>Keep building relationships</p>
@@ -414,7 +418,7 @@ function App() {
                 <div className="stat-card">
                   <div className="stat-top">
                     <span>Profile completeness</span>
-                    <span className="stat-icon orange-bg">◈</span>
+                    <span className="stat-icon orange-bg">â—ˆ</span>
                   </div>
                   <h2>{profile.trim() ? '75%' : '0%'}</h2>
                   <p>{profile.trim() ? 'Profile information added' : 'Add your profile details'}</p>
@@ -433,7 +437,7 @@ function App() {
                       className="text-button"
                       onClick={() => setActivePage('Find Connections')}
                     >
-                      View all →
+                      View all â†’
                     </button>
                   </div>
 
@@ -483,7 +487,7 @@ function App() {
               </section>
 
               <section className="quick-start panel">
-                <div className="quick-start-icon">✦</div>
+                <div className="quick-start-icon">âœ¦</div>
                 <div>
                   <h2>Ready to grow your network?</h2>
                   <p>Start by adding your LinkedIn profile and career goals.</p>
@@ -493,7 +497,7 @@ function App() {
                   className="primary-button"
                   onClick={() => setActivePage('My Profile')}
                 >
-                  Set up my profile →
+                  Set up my profile â†’
                 </button>
               </section>
             </>
@@ -537,6 +541,20 @@ function App() {
                   placeholder="Example: Looking for AI/ML internships and fresher roles in software development..."
                 />
 
+                <label htmlFor="preferredRoles">Preferred roles</label>
+
+                <textarea
+                  id="preferredRoles"
+                  rows="3"
+                  value={preferredRoles}
+                  onChange={(e) => setPreferredRoles(e.target.value)}
+                  placeholder="Example: Data Analyst, Junior Data Scientist, AI Engineer, Business Analyst"
+                />
+
+                <p className="form-description">
+                  Enter multiple roles separated by commas.
+                </p>
+
                 <button
                   className="primary-button"
                   onClick={handleSaveProfile}
@@ -577,7 +595,7 @@ function App() {
               </p>
 
               <div className="search-box">
-                <span>⌕</span>
+                <span>âŒ•</span>
 
                 <input
                   type="text"
@@ -718,11 +736,11 @@ function App() {
                   <div>
                     <h2>Connection request message</h2>
                     <p>
-                      Message for {selectedPerson.name} · {selectedPerson.company}
+                      Message for {selectedPerson.name} Â· {selectedPerson.company}
                     </p>
                   </div>
 
-                  <span className="ai-tag">✦ AI ASSISTED</span>
+                  <span className="ai-tag">âœ¦ AI ASSISTED</span>
                 </div>
 
                 <textarea
@@ -823,7 +841,7 @@ function App() {
           )}
 
           <footer className="footer">
-            <span>© 2026 Netwise AI</span>
+            <span>Â© 2026 Netwise AI</span>
             <span>Built for meaningful professional connections.</span>
           </footer>
         </div>
