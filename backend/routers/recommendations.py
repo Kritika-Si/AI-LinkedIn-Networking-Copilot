@@ -16,7 +16,7 @@ router = APIRouter(
 @router.get("/")
 def get_recommendations(db: Session = Depends(get_db)):
 
-    # Get the latest saved profile
+    # Get the latest saved user profile
     profile = db.query(UserProfile).order_by(
         UserProfile.id.desc()
     ).first()
@@ -27,10 +27,16 @@ def get_recommendations(db: Session = Depends(get_db)):
             detail="Please save your profile before generating recommendations."
         )
 
-    # Generate recommendations
+    # Get profile information from the database
+    profile_text = profile.linkedin_profile or ""
+    career_goals = profile.career_goals or ""
+    preferred_roles = profile.preferred_roles or ""
+
+    # Generate personalized recommendations
     recommendations = generate_recommendations(
-        profile.linkedin_profile,
-        profile.career_goals or ""
+        profile_text=profile_text,
+        career_goals=career_goals,
+        preferred_roles=preferred_roles
     )
 
     return {
