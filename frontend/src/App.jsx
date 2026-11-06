@@ -316,7 +316,7 @@ function App() {
 
       <div className="person-details">
         <strong>{person.name}</strong>
-        <span>{person.role} Â· {person.company}</span>
+        <span>{person.role}  |  {person.company}</span>
 
         {person.matched_skills?.length > 0 && (
           <small>
@@ -375,7 +375,7 @@ function App() {
 
         <div className="sidebar-bottom">
           <div className="help-card">
-            <div className="help-icon">âœ¦</div>
+            <div className="help-icon">*</div>
             <h3>AI-powered networking</h3>
             <p>
               Build meaningful professional connections with smarter insights.
@@ -388,7 +388,7 @@ function App() {
               <strong>Your Workspace</strong>
               <span>Free Plan</span>
             </div>
-            <span className="more-icon">Â·Â·Â·</span>
+            <span className="more-icon">...</span>
           </div>
         </div>
       </aside>
@@ -405,7 +405,7 @@ function App() {
             </span>
 
             <button className="notification-button" aria-label="Notifications">
-              â™§
+              !
               <i></i>
             </button>
 
@@ -420,7 +420,7 @@ function App() {
               <section className="welcome-section">
                 <div>
                   <p className="eyebrow">YOUR PROFESSIONAL GROWTH</p>
-                  <h1>Good to see you! <span>âœ¦</span></h1>
+                  <h1>Good to see you! <span>*</span></h1>
                   <p className="welcome-description">
                     Your AI networking assistant is ready to help you build
                     meaningful connections.
@@ -431,7 +431,7 @@ function App() {
                   className="primary-button"
                   onClick={() => setActivePage('Find Connections')}
                 >
-                  <span>âœ¦</span> Find connections
+                  <span>*</span> Find connections
                 </button>
               </section>
 
@@ -439,7 +439,7 @@ function App() {
                 <div className="stat-card">
                   <div className="stat-top">
                     <span>Connections discovered</span>
-                    <span className="stat-icon lavender">â—Ž</span>
+                    <span className="stat-icon lavender">◎</span>
                   </div>
                   <h2>{connections.length}</h2>
                   <p>Based on your saved profile</p>
@@ -448,7 +448,7 @@ function App() {
                 <div className="stat-card">
                   <div className="stat-top">
                     <span>Messages generated</span>
-                    <span className="stat-icon blue-bg">âœ‰</span>
+                    <span className="stat-icon blue-bg">✉</span>
                   </div>
                   <h2>{messagesGenerated}</h2>
                   <p>Messages prepared in this browser</p>
@@ -457,7 +457,7 @@ function App() {
                 <div className="stat-card">
                   <div className="stat-top">
                     <span>Connection requests</span>
-                    <span className="stat-icon green-bg">â†—</span>
+                    <span className="stat-icon green-bg">↗</span>
                   </div>
                   <h2>0</h2>
                   <p>Not sent automatically by Netwise</p>
@@ -466,7 +466,7 @@ function App() {
                 <div className="stat-card">
                   <div className="stat-top">
                     <span>Profile completeness</span>
-                    <span className="stat-icon orange-bg">â—ˆ</span>
+                    <span className="stat-icon orange-bg">◈</span>
                   </div>
                   <h2>{profile.trim() ? '75%' : '0%'}</h2>
                   <p>{profile.trim() ? 'Profile information added' : 'Add your profile details'}</p>
@@ -485,7 +485,7 @@ function App() {
                       className="text-button"
                       onClick={() => setActivePage('Find Connections')}
                     >
-                      View all â†’
+                      View all -{'>'}
                     </button>
                   </div>
 
@@ -534,7 +534,7 @@ function App() {
               </section>
 
               <section className="quick-start panel">
-                <div className="quick-start-icon">âœ¦</div>
+                <div className="quick-start-icon">*</div>
                 <div>
                   <h2>Ready to grow your network?</h2>
                   <p>Start by adding your LinkedIn profile and career goals.</p>
@@ -544,7 +544,7 @@ function App() {
                   className="primary-button"
                   onClick={() => setActivePage('My Profile')}
                 >
-                  Set up my profile â†’
+                  Set up my profile -{'>'}
                 </button>
               </section>
             </>
@@ -642,7 +642,7 @@ function App() {
               </p>
 
               <div className="search-box">
-                <span>âŒ•</span>
+                <span>⌕</span>
 
                 <input
                   type="text"
@@ -783,11 +783,11 @@ function App() {
                   <div>
                     <h2>Connection request message</h2>
                     <p>
-                      Message for {selectedPerson.name} Â· {selectedPerson.company}
+                      Message for {selectedPerson.name}  |  {selectedPerson.company}
                     </p>
                   </div>
 
-                  <span className="ai-tag">âœ¦ AI ASSISTED</span>
+                  <span className="ai-tag">* AI ASSISTED</span>
                 </div>
 
                 <textarea
@@ -898,3 +898,5 @@ function App() {
 }
 
 export default App
+
+
