@@ -42,6 +42,47 @@ function App() {
   const [messageType, setMessageType] = useState('Recruiter Outreach')
   const [connectionReason, setConnectionReason] = useState('')
 
+  // Networking activity is stored in this browser so it remains after refresh.
+  const [activities, setActivities] = useState(() => {
+    try {
+      const savedActivities = localStorage.getItem('netwiseActivities')
+      return savedActivities ? JSON.parse(savedActivities) : []
+    } catch {
+      return []
+    }
+  })
+
+  const messagesGenerated = activities.filter(
+    (activity) => activity.type === 'message_generated'
+  ).length
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('netwiseActivities', JSON.stringify(activities))
+    } catch (error) {
+      console.error('Could not save activity history:', error)
+    }
+  }, [activities])
+
+  const recordActivity = (type, title, description) => {
+    const newActivity = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      type,
+      title,
+      description,
+      timestamp: new Date().toISOString(),
+    }
+
+    setActivities((previousActivities) => [newActivity, ...previousActivities])
+  }
+
+  const formatActivityTime = (timestamp) => {
+    const date = new Date(timestamp)
+    return Number.isNaN(date.getTime())
+      ? 'Recently'
+      : date.toLocaleString()
+  }
+
   // Load saved profile information
   useEffect(() => {
     const loadProfile = async () => {
@@ -175,7 +216,8 @@ function App() {
 
       if (!recommendationResponse.ok) {
         throw new Error(
-          recommendationResult.detail || 'Profile saved, but recommendations could not be refreshed.'
+          recommendationResult.detail ||
+            'Profile saved, but recommendations could not be refreshed.'
         )
       }
 
@@ -198,11 +240,11 @@ function App() {
   }
 
   const navigation = [
-    { name: 'Dashboard', icon: 'â–¦' },
-    { name: 'My Profile', icon: 'â—‰' },
-    { name: 'Find Connections', icon: 'â—Ž' },
-    { name: 'Message Generator', icon: 'âœ‰' },
-    { name: 'Activity', icon: 'â†—' },
+    { name: 'Dashboard', icon: '⌂' },
+    { name: 'My Profile', icon: '♙' },
+    { name: 'Find Connections', icon: '◎' },
+    { name: 'Message Generator', icon: '✉' },
+    { name: 'Activity', icon: '↗' },
   ]
 
   // Search through API recommendations
@@ -249,6 +291,12 @@ function App() {
     const generatedMessage = `${toneOpening[messageTone]} ${reason} I am currently pursuing B.Tech in Computer Science (AI & Data Science), with interests in Python, SQL and Machine Learning. ${purpose} ${closing[messageTone]}`
 
     setMessage(generatedMessage)
+
+    recordActivity(
+      'message_generated',
+      'Personalized message generated',
+      `A ${messageTone.toLowerCase()} ${messageType.toLowerCase()} message was prepared for ${person.name} at ${person.company}.`
+    )
   }
 
   // Select a professional and open the message generator
@@ -402,8 +450,8 @@ function App() {
                     <span>Messages generated</span>
                     <span className="stat-icon blue-bg">âœ‰</span>
                   </div>
-                  <h2>0</h2>
-                  <p>Start creating messages</p>
+                  <h2>{messagesGenerated}</h2>
+                  <p>Messages prepared in this browser</p>
                 </div>
 
                 <div className="stat-card">
@@ -412,7 +460,7 @@ function App() {
                     <span className="stat-icon green-bg">â†—</span>
                   </div>
                   <h2>0</h2>
-                  <p>Keep building relationships</p>
+                  <p>Not sent automatically by Netwise</p>
                 </div>
 
                 <div className="stat-card">
@@ -465,23 +513,22 @@ function App() {
                   </div>
 
                   <div className="activity-list">
-                    <div className="activity-item">
-                      <span className="activity-dot purple-dot"></span>
-                      <div>
-                        <strong>Recommendations loaded</strong>
-                        <p>{connections.length} sample professionals found</p>
-                        <small>Today</small>
-                      </div>
-                    </div>
-
-                    <div className="activity-item">
-                      <span className="activity-dot blue-dot"></span>
-                      <div>
-                        <strong>Profile analysis</strong>
-                        <p>Your saved profile is used for matching</p>
-                        <small>Today</small>
-                      </div>
-                    </div>
+                    {activities.length > 0 ? (
+                      activities.slice(0, 3).map((activity) => (
+                        <div className="activity-item" key={activity.id}>
+                          <span className={`activity-dot ${activity.type === 'message_generated' ? 'blue-dot' : 'purple-dot'}`}></span>
+                          <div>
+                            <strong>{activity.title}</strong>
+                            <p>{activity.description}</p>
+                            <small>{formatActivityTime(activity.timestamp)}</small>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="empty-state">
+                        Your message-generation activity will appear here.
+                      </p>
+                    )}
                   </div>
                 </div>
               </section>
@@ -796,12 +843,13 @@ function App() {
 
                 <div className="stat-card">
                   <span>Messages generated</span>
-                  <h2>0</h2>
+                  <h2>{messagesGenerated}</h2>
                 </div>
 
                 <div className="stat-card">
                   <span>Requests sent</span>
                   <h2>0</h2>
+                  <p>Netwise does not send LinkedIn requests</p>
                 </div>
 
                 <div className="stat-card">
@@ -810,7 +858,7 @@ function App() {
                 </div>
               </div>
 
-              <div className="panel activity-panel full-panel">
+              <div className="panel activity-panelfull-panel">
                 <h2>Networking timeline</h2>
 
                 <p className="form-description">
@@ -818,30 +866,29 @@ function App() {
                 </p>
 
                 <div className="activity-list">
-                  <div className="activity-item">
-                    <span className="activity-dot purple-dot"></span>
-                    <div>
-                      <strong>Connection recommendations reviewed</strong>
-                      <p>{connections.length} professionals matched with your interests</p>
-                      <small>Today</small>
-                    </div>
-                  </div>
-
-                  <div className="activity-item">
-                    <span className="activity-dot blue-dot"></span>
-                    <div>
-                      <strong>Personalized message prepared</strong>
-                      <p>Connection message ready for review</p>
-                      <small>Today</small>
-                    </div>
-                  </div>
+                  {activities.length > 0 ? (
+                    activities.map((activity) => (
+                      <div className="activity-item" key={activity.id}>
+                        <span className={`activity-dot ${activity.type === 'message_generated' ? 'blue-dot' : 'purple-dot'}`}></span>
+                        <div>
+                          <strong>{activity.title}</strong>
+                          <p>{activity.description}</p>
+                          <small>{formatActivityTime(activity.timestamp)}</small>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="empty-state">
+                      No activity yet. Generate a personalized message to start your timeline.
+                    </p>
+                  )}
                 </div>
               </div>
             </section>
           )}
 
           <footer className="footer">
-            <span>Â© 2026 Netwise AI</span>
+            <span>© 2026 Netwise AI</span>
             <span>Built for meaningful professional connections.</span>
           </footer>
         </div>
