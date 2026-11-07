@@ -1,4 +1,5 @@
-﻿import { useState, useEffect } from 'react'
+﻿
+import { useState, useEffect } from 'react'
 import './App.css'
 
 const API_BASE_URL = 'http://127.0.0.1:8000'
@@ -42,7 +43,7 @@ function App() {
   const [messageType, setMessageType] = useState('Recruiter Outreach')
   const [connectionReason, setConnectionReason] = useState('')
 
-  // Networking activity is stored in this browser so it remains after refresh.
+  // Activity history
   const [activities, setActivities] = useState(() => {
     try {
       const savedActivities = localStorage.getItem('netwiseActivities')
@@ -56,6 +57,17 @@ function App() {
     (activity) => activity.type === 'message_generated'
   ).length
 
+  const profileCompleteness = [
+    profile.trim(),
+    careerGoal.trim(),
+    preferredRoles.trim(),
+  ].filter(Boolean).length
+
+  const completenessPercentage = Math.round(
+    (profileCompleteness / 3) * 100
+  )
+
+  // Save activity history
   useEffect(() => {
     try {
       localStorage.setItem('netwiseActivities', JSON.stringify(activities))
@@ -64,6 +76,7 @@ function App() {
     }
   }, [activities])
 
+  // Record networking activity
   const recordActivity = (type, title, description) => {
     const newActivity = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -73,17 +86,60 @@ function App() {
       timestamp: new Date().toISOString(),
     }
 
-    setActivities((previousActivities) => [newActivity, ...previousActivities])
+    setActivities((previousActivities) => [
+      newActivity,
+      ...previousActivities,
+    ])
   }
 
+  // Format activity timestamp
   const formatActivityTime = (timestamp) => {
     const date = new Date(timestamp)
+
     return Number.isNaN(date.getTime())
       ? 'Recently'
       : date.toLocaleString()
   }
 
-  // Load saved profile information
+  // Fetch recommendations from backend
+  const loadRecommendations = async () => {
+    try {
+      setIsLoadingConnections(true)
+      setRecommendationError('')
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/recommendations/`
+      )
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(
+          result.detail || 'Unable to load recommendations.'
+        )
+      }
+
+      const fetchedConnections = result.recommendations || []
+
+      setConnections(fetchedConnections)
+
+      if (fetchedConnections.length > 0) {
+        setSelectedPerson(fetchedConnections[0])
+      } else {
+        setSelectedPerson(defaultPerson)
+      }
+    } catch (error) {
+      console.error('Recommendation loading error:', error)
+      setRecommendationError(
+        error.message || 'Could not connect to the recommendations API.'
+      )
+      setConnections([])
+    } finally {
+      setIsLoadingConnections(false)
+    }
+  }
+
+  // Load the latest saved profile first, then load recommendations
   useEffect(() => {
     const loadProfile = async () => {
       try {
@@ -96,19 +152,32 @@ function App() {
         const profiles = await response.json()
 
         if (profiles.length > 0) {
-          const savedProfile = profiles[0]
+          // Select the latest profile instead of the oldest one
+          const savedProfile = [...profiles].sort(
+            (a, b) => b.id - a.id
+          )[0]
 
           setProfileId(savedProfile.id)
           setProfile(savedProfile.linkedin_profile || '')
           setCareerGoal(savedProfile.career_goals || '')
           setPreferredRoles(savedProfile.preferred_roles || '')
         }
+
+        // Wait until profile loading is complete before requesting matches
+        await loadRecommendations()
       } catch (error) {
         console.error('Profile loading error:', error)
+
         setProfileStatus(
           'Could not load profile. Please check the backend connection.'
         )
         setProfileStatusType('error')
+
+        setRecommendationError(
+          'Unable to load your profile. Please check the backend.'
+        )
+        setConnections([])
+        setIsLoadingConnections(false)
       } finally {
         setIsLoadingProfile(false)
       }
@@ -117,49 +186,12 @@ function App() {
     loadProfile()
   }, [])
 
-  // Fetch recommendations from FastAPI
-  useEffect(() => {
-    const loadRecommendations = async () => {
-      try {
-        setIsLoadingConnections(true)
-        setRecommendationError('')
-
-        const response = await fetch(
-          `${API_BASE_URL}/api/recommendations/`
-        )
-
-        const result = await response.json()
-
-        if (!response.ok) {
-          throw new Error(
-            result.detail || 'Unable to load recommendations.'
-          )
-        }
-
-        const fetchedConnections = result.recommendations || []
-
-        setConnections(fetchedConnections)
-
-        if (fetchedConnections.length > 0) {
-          setSelectedPerson(fetchedConnections[0])
-        }
-      } catch (error) {
-        console.error('Recommendation loading error:', error)
-        setRecommendationError(
-          error.message || 'Could not connect to the recommendations API.'
-        )
-      } finally {
-        setIsLoadingConnections(false)
-      }
-    }
-
-    loadRecommendations()
-  }, [])
-
   // Save a new profile or update an existing profile
   const handleSaveProfile = async () => {
     if (!profile.trim()) {
-      setProfileStatus('Please enter your LinkedIn profile information.')
+      setProfileStatus(
+        'Please enter your LinkedIn profile information.'
+      )
       setProfileStatusType('error')
       return
     }
@@ -207,38 +239,21 @@ function App() {
       )
       setProfileStatusType('success')
 
-      // Refresh recommendations after saving profile changes
-      const recommendationResponse = await fetch(
-        `${API_BASE_URL}/api/recommendations/`
-      )
-
-      const recommendationResult = await recommendationResponse.json()
-
-      if (!recommendationResponse.ok) {
-        throw new Error(
-          recommendationResult.detail ||
-            'Profile saved, but recommendations could not be refreshed.'
-        )
-      }
-
-      const updatedConnections = recommendationResult.recommendations || []
-
-      setConnections(updatedConnections)
-
-      if (updatedConnections.length > 0) {
-        setSelectedPerson(updatedConnections[0])
-      }
-
-      setRecommendationError('')
+      // Refresh recommendations after saving
+      await loadRecommendations()
     } catch (error) {
       console.error('Profile saving error:', error)
-      setProfileStatus(error.message || 'Unable to save your profile.')
+
+      setProfileStatus(
+        error.message || 'Unable to save your profile.'
+      )
       setProfileStatusType('error')
     } finally {
       setIsSavingProfile(false)
     }
   }
 
+  // Navigation items
   const navigation = [
     { name: 'Dashboard', icon: '⌂' },
     { name: 'My Profile', icon: '♙' },
@@ -247,7 +262,7 @@ function App() {
     { name: 'Activity', icon: '↗' },
   ]
 
-  // Search through API recommendations
+  // Filter recommendations
   const filteredConnections = connections.filter((person) =>
     `${person.name} ${person.role} ${person.company}`
       .toLowerCase()
@@ -283,9 +298,12 @@ function App() {
         : 'I am interested in learning about your professional journey and exchanging insights.'
 
     const closing = {
-      Professional: 'I would appreciate the opportunity to connect. Thank you for your time.',
-      Friendly: 'It would be great to connect and learn from your experience. Thanks!',
-      Confident: 'I look forward to connecting and learning from your insights. Thank you.',
+      Professional:
+        'I would appreciate the opportunity to connect. Thank you for your time.',
+      Friendly:
+        'It would be great to connect and learn from your experience. Thanks!',
+      Confident:
+        'I look forward to connecting and learning from your insights. Thank you.',
     }
 
     const generatedMessage = `${toneOpening[messageTone]} ${reason} I am currently pursuing B.Tech in Computer Science (AI & Data Science), with interests in Python, SQL and Machine Learning. ${purpose} ${closing[messageTone]}`
@@ -316,7 +334,7 @@ function App() {
 
       <div className="person-details">
         <strong>{person.name}</strong>
-        <span>{person.role}  |  {person.company}</span>
+        <span>{person.role} | {person.company}</span>
 
         {person.matched_skills?.length > 0 && (
           <small>
@@ -324,9 +342,7 @@ function App() {
           </small>
         )}
 
-        {person.reason && (
-          <small>{person.reason}</small>
-        )}
+        {person.reason && <small>{person.reason}</small>}
       </div>
 
       <div className="match-score">
@@ -404,7 +420,10 @@ function App() {
               <span></span> AI Assistant Ready
             </span>
 
-            <button className="notification-button" aria-label="Notifications">
+            <button
+              className="notification-button"
+              aria-label="Notifications"
+            >
               !
               <i></i>
             </button>
@@ -468,8 +487,12 @@ function App() {
                     <span>Profile completeness</span>
                     <span className="stat-icon orange-bg">◈</span>
                   </div>
-                  <h2>{profile.trim() ? '75%' : '0%'}</h2>
-                  <p>{profile.trim() ? 'Profile information added' : 'Add your profile details'}</p>
+                  <h2>{completenessPercentage}%</h2>
+                  <p>
+                    {completenessPercentage === 100
+                      ? 'All profile sections completed'
+                      : 'Complete your profile information'}
+                  </p>
                 </div>
               </section>
 
@@ -491,7 +514,9 @@ function App() {
 
                   <div className="connection-list">
                     {isLoadingConnections ? (
-                      <p className="empty-state">Loading recommendations...</p>
+                      <p className="empty-state">
+                        Loading recommendations...
+                      </p>
                     ) : recommendationError ? (
                       <p className="empty-state">{recommendationError}</p>
                     ) : connections.length > 0 ? (
@@ -516,11 +541,19 @@ function App() {
                     {activities.length > 0 ? (
                       activities.slice(0, 3).map((activity) => (
                         <div className="activity-item" key={activity.id}>
-                          <span className={`activity-dot ${activity.type === 'message_generated' ? 'blue-dot' : 'purple-dot'}`}></span>
+                          <span
+                            className={`activity-dot ${
+                              activity.type === 'message_generated'
+                                ? 'blue-dot'
+                                : 'purple-dot'
+                            }`}
+                          ></span>
                           <div>
                             <strong>{activity.title}</strong>
                             <p>{activity.description}</p>
-                            <small>{formatActivityTime(activity.timestamp)}</small>
+                            <small>
+                              {formatActivityTime(activity.timestamp)}
+                            </small>
                           </div>
                         </div>
                       ))
@@ -621,7 +654,8 @@ function App() {
                     role="status"
                     style={{
                       marginTop: '14px',
-                      color: profileStatusType === 'success' ? 'green' : 'red',
+                      color:
+                        profileStatusType === 'success' ? 'green' : 'red',
                     }}
                   >
                     {profileStatus}
@@ -656,16 +690,22 @@ function App() {
                 <div className="panel-heading">
                   <div>
                     <h2>Suggested professionals</h2>
-                    <p>Recommendations generated from your saved profile</p>
+                    <p>
+                      Recommendations generated from your saved profile
+                    </p>
                   </div>
 
                   <span className="result-count">
-                    {isLoadingConnections ? 'Loading...' : `${filteredConnections.length} results`}
+                    {isLoadingConnections
+                      ? 'Loading...'
+                      : `${filteredConnections.length} results`}
                   </span>
                 </div>
 
                 {isLoadingConnections ? (
-                  <p className="empty-state">Loading recommendations...</p>
+                  <p className="empty-state">
+                    Loading recommendations...
+                  </p>
                 ) : recommendationError ? (
                   <p className="empty-state">{recommendationError}</p>
                 ) : (
@@ -684,8 +724,8 @@ function App() {
 
                 <p className="disclaimer">
                   Demo recommendations use fictional sample professionals.
-                  Match scores are calculated by a basic skill-matching algorithm,
-                  not live LinkedIn data.
+                  Match scores are calculated by a basic skill-matching
+                  algorithm, not live LinkedIn data.
                 </p>
               </div>
             </section>
@@ -703,7 +743,6 @@ function App() {
               </p>
 
               <div className="panel message-panel">
-                {/* MESSAGE CUSTOMIZATION */}
                 <div
                   className="message-customization"
                   style={{
@@ -728,8 +767,12 @@ function App() {
                         font: 'inherit',
                       }}
                     >
-                      <option value="Recruiter Outreach">Recruiter outreach</option>
-                      <option value="Professional Networking">Professional networking</option>
+                      <option value="Recruiter Outreach">
+                        Recruiter outreach
+                      </option>
+                      <option value="Professional Networking">
+                        Professional networking
+                      </option>
                     </select>
                   </div>
 
@@ -764,7 +807,10 @@ function App() {
                       value={connectionReason}
                       onChange={(e) => setConnectionReason(e.target.value)}
                       placeholder="Example: I would love to learn about your experience in AI recruitment."
-                      style={{ width: '100%', boxSizing: 'border-box' }}
+                      style={{
+                        width: '100%',
+                        boxSizing: 'border-box',
+                      }}
                     />
                   </div>
 
@@ -783,7 +829,7 @@ function App() {
                   <div>
                     <h2>Connection request message</h2>
                     <p>
-                      Message for {selectedPerson.name}  |  {selectedPerson.company}
+                      Message for {selectedPerson.name} | {selectedPerson.company}
                     </p>
                   </div>
 
@@ -809,7 +855,9 @@ function App() {
                         await navigator.clipboard.writeText(message)
                         alert('Message copied to clipboard!')
                       } catch {
-                        alert('Unable to copy. Please copy the message manually.')
+                        alert(
+                          'Unable to copy. Please copy the message manually.'
+                        )
                       }
                     }}
                   >
@@ -869,17 +917,26 @@ function App() {
                   {activities.length > 0 ? (
                     activities.map((activity) => (
                       <div className="activity-item" key={activity.id}>
-                        <span className={`activity-dot ${activity.type === 'message_generated' ? 'blue-dot' : 'purple-dot'}`}></span>
+                        <span
+                          className={`activity-dot ${
+                            activity.type === 'message_generated'
+                              ? 'blue-dot'
+                              : 'purple-dot'
+                          }`}
+                        ></span>
                         <div>
                           <strong>{activity.title}</strong>
                           <p>{activity.description}</p>
-                          <small>{formatActivityTime(activity.timestamp)}</small>
+                          <small>
+                            {formatActivityTime(activity.timestamp)}
+                          </small>
                         </div>
                       </div>
                     ))
                   ) : (
                     <p className="empty-state">
-                      No activity yet. Generate a personalized message to start your timeline.
+                      No activity yet. Generate a personalized message to
+                      start your timeline.
                     </p>
                   )}
                 </div>
@@ -898,5 +955,3 @@ function App() {
 }
 
 export default App
-
-
