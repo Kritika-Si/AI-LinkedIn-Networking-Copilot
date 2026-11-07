@@ -11,7 +11,12 @@ SAMPLE_PROFESSIONALS = [
         "role": "Technical Recruiter",
         "company": "Google",
         "skills": ["python", "machine learning", "data science"],
-        "supports_roles": ["*"],
+        "supports_roles": [
+            "Data Analyst",
+            "Junior Data Scientist",
+            "AI Engineer",
+            "Business Analyst",
+        ],
         "initials": "SJ",
         "color": "purple",
     },
@@ -22,7 +27,7 @@ SAMPLE_PROFESSIONALS = [
         "skills": ["python", "sql", "artificial intelligence"],
         "supports_roles": [
             "AI Engineer",
-            "Junior Data Scientist"
+            "Junior Data Scientist",
         ],
         "initials": "MC",
         "color": "blue",
@@ -32,7 +37,11 @@ SAMPLE_PROFESSIONALS = [
         "role": "Talent Acquisition",
         "company": "Amazon",
         "skills": ["data science", "sql", "analytics"],
-        "supports_roles": ["*"],
+        "supports_roles": [
+            "Data Analyst",
+            "Junior Data Scientist",
+            "Business Analyst",
+        ],
         "initials": "PS",
         "color": "pink",
     },
@@ -40,7 +49,7 @@ SAMPLE_PROFESSIONALS = [
 
 
 def normalize_text(text):
-    """Convert text to lowercase for consistent matching."""
+    """Normalize text for consistent comparisons."""
     return (text or "").lower().strip()
 
 
@@ -60,14 +69,7 @@ def find_matches(source_text, keywords):
 
 
 def calculate_role_match(preferred_roles, professional):
-    """
-    Calculate how relevant a professional is to the user's
-    preferred job roles.
-
-    Recruiters and talent acquisition professionals can support
-    multiple job roles. Other professionals are matched against
-    the roles they can specifically support.
-    """
+    """Calculate compatibility with the user's preferred roles."""
 
     if not preferred_roles or not preferred_roles.strip():
         return 0, []
@@ -81,21 +83,16 @@ def calculate_role_match(preferred_roles, professional):
     if not user_roles:
         return 0, []
 
-    supported_roles = professional.get("supports_roles", [])
-
-    # Recruiters can potentially help with all preferred roles.
-    if "*" in supported_roles:
-        return 100, user_roles
-
-    matched_roles = []
-
-    supported_normalized = {
-        normalize_text(role) for role in supported_roles
+    supported_roles = {
+        normalize_text(role)
+        for role in professional.get("supports_roles", [])
     }
 
-    for role in user_roles:
-        if normalize_text(role) in supported_normalized:
-            matched_roles.append(role)
+    matched_roles = [
+        role
+        for role in user_roles
+        if normalize_text(role) in supported_roles
+    ]
 
     role_score = round(
         (len(matched_roles) / len(user_roles)) * 100
@@ -110,7 +107,7 @@ def calculate_match(
     preferred_roles,
     professional
 ):
-    """Calculate recommendation score using multiple factors."""
+    """Calculate a personalized recommendation score."""
 
     # 1. Skill matching (50%)
     matched_skills = find_matches(
@@ -125,13 +122,13 @@ def calculate_match(
         if total_skills else 0
     )
 
-    # 2. Contact relevance to preferred roles (30%)
+    # 2. Preferred role matching (30%)
     role_score, matched_roles = calculate_role_match(
         preferred_roles,
         professional
     )
 
-    # 3. Career goal relevance (20%)
+    # 3. Career goal matching (20%)
     goal_matches = find_matches(
         career_goals,
         professional["skills"]
@@ -142,7 +139,7 @@ def calculate_match(
         if total_skills else 0
     )
 
-    # Calculate weighted score using available information.
+    # Use only the factors for which the user supplied information.
     weighted_total = skill_score * 0.50
     total_weight = 0.50
 
@@ -156,7 +153,7 @@ def calculate_match(
 
     final_score = round(weighted_total / total_weight)
 
-    # Generate an explanation for the recommendation.
+    # Generate explanations for the recommendation.
     reasons = []
 
     if matched_skills:
@@ -166,8 +163,7 @@ def calculate_match(
 
     if matched_roles:
         reasons.append(
-            "Can help with preferred roles: "
-            + ", ".join(matched_roles)
+            "Relevant preferred roles: " + ", ".join(matched_roles)
         )
 
     if goal_matches:
@@ -175,11 +171,13 @@ def calculate_match(
             "Career goal matches: " + ", ".join(goal_matches)
         )
 
-    reason = (
-        ". ".join(reasons)
-        if reasons
-        else "This professional may be relevant to explore."
-    )
+    if not reasons:
+        reason = (
+            "Limited matching information. "
+            "Consider exploring this professional's background."
+        )
+    else:
+        reason = ". ".join(reasons) + "."
 
     return {
         "match": final_score,
@@ -198,7 +196,7 @@ def generate_recommendations(
     career_goals="",
     preferred_roles=""
 ):
-    """Generate and rank personalized professional recommendations."""
+    """Generate and rank personalized recommendations."""
 
     recommendations = []
 
