@@ -48,24 +48,118 @@ SAMPLE_PROFESSIONALS = [
 ]
 
 
+# Maps alternative skill names to a standard skill name.
+SKILL_SYNONYMS = {
+    "machine learning": [
+        "machine learning",
+        "machine-learning",
+        "ml",
+    ],
+    "artificial intelligence": [
+        "artificial intelligence",
+        "artificial-intelligence",
+        "ai",
+    ],
+    "python": [
+        "python",
+        "python programming",
+        "python language",
+    ],
+    "sql": [
+        "sql",
+        "structured query language",
+    ],
+    "data science": [
+        "data science",
+    ],
+    "data analysis": [
+        "data analysis",
+        "data analytics",
+    ],
+    "analytics": [
+        "analytics",
+        "business analytics",
+    ],
+    "react": [
+        "react",
+        "react.js",
+        "reactjs",
+    ],
+    "javascript": [
+        "javascript",
+        "js",
+    ],
+    "fastapi": [
+        "fastapi",
+        "fast api",
+    ],
+    "mysql": [
+        "mysql",
+        "my sql",
+    ],
+}
+
+
 def normalize_text(text):
     """Normalize text for consistent comparisons."""
     return (text or "").lower().strip()
 
 
 def find_matches(source_text, keywords):
-    """Find keywords that appear in the given text."""
+    """Find exact keyword matches using word boundaries."""
 
     normalized_text = normalize_text(source_text)
     matched = []
 
     for keyword in keywords:
-        pattern = r"\b" + re.escape(keyword.lower()) + r"\b"
+        pattern = r"(?<!\w)" + re.escape(
+            normalize_text(keyword)
+        ) + r"(?!\w)"
 
         if re.search(pattern, normalized_text):
             matched.append(keyword)
 
     return matched
+
+
+def normalize_skill(skill):
+    """Convert a skill alias into its standard skill name."""
+
+    normalized_skill = normalize_text(skill)
+
+    for standard_skill, aliases in SKILL_SYNONYMS.items():
+        if normalized_skill in aliases:
+            return standard_skill
+
+    return normalized_skill
+
+
+def find_semantic_skill_matches(source_text, professional_skills):
+    """
+    Match professional skills using known synonyms.
+
+    This is rule-based synonym matching, not an AI embeddings model.
+    """
+
+    normalized_text = normalize_text(source_text)
+    matched_skills = []
+
+    for skill in professional_skills:
+        standard_skill = normalize_skill(skill)
+
+        aliases = SKILL_SYNONYMS.get(
+            standard_skill,
+            [standard_skill]
+        )
+
+        for alias in aliases:
+            pattern = r"(?<!\w)" + re.escape(alias) + r"(?!\w)"
+
+            if re.search(pattern, normalized_text):
+                matched_skills.append(standard_skill)
+                break
+
+    return matched_skills
 
 
 def calculate_role_match(preferred_roles, professional):
@@ -110,7 +204,7 @@ def calculate_match(
     """Calculate a personalized recommendation score."""
 
     # 1. Skill matching (50%)
-    matched_skills = find_matches(
+    matched_skills = find_semantic_skill_matches(
         profile_text,
         professional["skills"]
     )
@@ -129,7 +223,7 @@ def calculate_match(
     )
 
     # 3. Career goal matching (20%)
-    goal_matches = find_matches(
+    goal_matches = find_semantic_skill_matches(
         career_goals,
         professional["skills"]
     )
