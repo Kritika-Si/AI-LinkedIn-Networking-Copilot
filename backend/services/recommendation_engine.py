@@ -1,5 +1,8 @@
 
 import re
+from functools import lru_cache
+
+from sentence_transformers import SentenceTransformer, util
 
 
 # Fictional sample professionals for testing.
@@ -48,7 +51,14 @@ SAMPLE_PROFESSIONALS = [
 ]
 
 
-# Maps alternative skill names to a standard skill name.
+# AI model configuration
+MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
+
+# Similarity threshold: only sufficiently related phrases match.
+SIMILARITY_THRESHOLD = 0.45
+
+
+# Maps alternative skill names to standard skill names.
 SKILL_SYNONYMS = {
     "machine learning": [
         "machine learning",
@@ -105,23 +115,6 @@ def normalize_text(text):
     return (text or "").lower().strip()
 
 
-def find_matches(source_text, keywords):
-    """Find exact keyword matches using word boundaries."""
-
-    normalized_text = normalize_text(source_text)
-    matched = []
-
-    for keyword in keywords:
-        pattern = r"(?<!\w)" + re.escape(
-            normalize_text(keyword)
-        ) + r"(?!\w)"
-
-        if re.search(pattern, normalized_text):
-            matched.append(keyword)
-
-    return matched
-
-
 def normalize_skill(skill):
     """Convert a skill alias into its standard skill name."""
 
@@ -134,32 +127,150 @@ def normalize_skill(skill):
     return normalized_skill
 
 
-def find_semantic_skill_matches(source_text, professional_skills):
-    """
-    Match professional skills using known synonyms.
+@lru_cache(maxsize=1)
+def get_embedding_model():
+    """Load and cache the sentence-transformer model."""
 
-    This is rule-based synonym matching, not an AI embeddings model.
+    return SentenceTransformer(
+        MODEL_NAME,
+        device="cpu"
+    )
+
+
+def split_into_phrases(source_text):
     """
+    Split profile information into meaningful phrases
+    and remove common introductory wording.
+    """
+
+    if not source_text:
+        return []
+
+    phrases = re.split(
+        r"[\n,;|]+|\s+and\s+",
+        source_text,
+        flags=re.IGNORECASE
+    )
+
+    cleaned_phrases = []
+
+    prefixes = [
+        r"i have experience in",
+        r"i have experience with",
+        r"experience in",
+        r"experience with",
+        r"i know",
+        r"i am skilled in",
+        r"skilled in",
+        r"knowledge of",
+        r"working with",
+        r"worked on",
+        r"interested in",
+    ]
+
+    for phrase in phrases:
+        phrase = phrase.strip().lower()
+
+        for prefix in prefixes:
+            phrase = re.sub(
+                r"^" + prefix + r"\s+",
+                "",
+                phrase
+            )
+
+        if phrase:
+            cleaned_phrases.append(phrase)
+
+    return cleaned_phrases
+
+
+def find_exact_skill_match(source_text, skill):
+    """Check exact and known synonym matches."""
 
     normalized_text = normalize_text(source_text)
+    standard_skill = normalize_skill(skill)
+
+    aliases = SKILL_SYNONYMS.get(
+        standard_skill,
+        [standard_skill]
+    )
+
+    for alias in aliases:
+        pattern = (
+            r"(?<!\w)"
+            + re.escape(alias)
+            + r"(?!\w)"
+        )
+
+        if re.search(pattern, normalized_text):
+            return True
+
+    return False
+
+
+def find_semantic_skill_matches(source_text, professional_skills):
+    """
+    Find skill matches using exact matching and AI embeddings.
+
+    The highest cosine similarity between each professional skill
+    and the user's individual profile phrases is used.
+    """
+
+    if not source_text or not professional_skills:
+        return []
+
+    phrases = split_into_phrases(source_text)
+
+    if not phrases:
+        return []
+
     matched_skills = []
+
+    # Exact matches are checked first.
+    unmatched_skills = []
 
     for skill in professional_skills:
         standard_skill = normalize_skill(skill)
 
-        aliases = SKILL_SYNONYMS.get(
-            standard_skill,
-            [standard_skill]
-        )
+        if find_exact_skill_match(source_text, skill):
+            matched_skills.append(standard_skill)
+        else:
+            unmatched_skills.append(standard_skill)
 
-        for alias in aliases:
-            pattern = r"(?<!\w)" + re.escape(alias) + r"(?!\w)"
+    # Avoid loading the model if every skill already matched.
+    if not unmatched_skills:
+        return list(dict.fromkeys(matched_skills))
 
-            if re.search(pattern, normalized_text):
-                matched_skills.append(standard_skill)
-                break
+    model = get_embedding_model()
 
-    return matched_skills
+    # Generate normalized embeddings.
+    phrase_embeddings = model.encode(
+        phrases,
+        convert_to_tensor=True,
+        normalize_embeddings=True
+    )
+
+    skill_embeddings = model.encode(
+        unmatched_skills,
+        convert_to_tensor=True,
+        normalize_embeddings=True
+    )
+
+    # Calculate cosine similarities.
+    similarity_matrix = util.cos_sim(
+        skill_embeddings,
+        phrase_embeddings
+    )
+
+    # Match each skill with its best profile phrase.
+    for index, skill in enumerate(unmatched_skills):
+
+        highest_similarity = similarity_matrix[index].max().item()
+
+        if highest_similarity >= SIMILARITY_THRESHOLD:
+            matched_skills.append(skill)
+
+    return list(dict.fromkeys(matched_skills))
 
 
 def calculate_role_match(preferred_roles, professional):
@@ -233,7 +344,7 @@ def calculate_match(
         if total_skills else 0
     )
 
-    # Use only the factors for which the user supplied information.
+    # Use only factors for which the user supplied information.
     weighted_total = skill_score * 0.50
     total_weight = 0.50
 
@@ -247,7 +358,7 @@ def calculate_match(
 
     final_score = round(weighted_total / total_weight)
 
-    # Generate explanations for the recommendation.
+    # Generate explanations.
     reasons = []
 
     if matched_skills:
