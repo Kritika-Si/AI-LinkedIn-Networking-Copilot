@@ -179,3 +179,32 @@ def test_generate_recommendations(client):
     ]
 
     assert scores == sorted(scores, reverse=True)
+
+def test_create_profile_with_empty_linkedin_profile(client):
+    response = client.post(
+        "/api/profiles/",
+        json={"linkedin_profile": ""}
+    )
+
+    assert response.status_code == 422
+
+
+def test_create_profile_with_whitespace_linkedin_profile(client):
+    response = client.post(
+        "/api/profiles/",
+        json={"linkedin_profile": "   "}
+    )
+
+    assert response.status_code == 422
+
+
+def test_create_profile_with_oversized_full_name(client):
+    response = client.post(
+        "/api/profiles/",
+        json={
+            "full_name": "A" * 151,
+            "linkedin_profile": "Python developer"
+        }
+    )
+
+    assert response.status_code == 422
