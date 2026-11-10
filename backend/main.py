@@ -1,12 +1,13 @@
-from fastapi.middleware.cors import CORSMiddleware
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from database import Base, engine
 import models
 
 from routers.profiles import router as profiles_router
 from routers.recommendations import router as recommendations_router
+
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
@@ -18,7 +19,8 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Allow React frontend to communicate with FastAPI backend
+
+# Configure CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -26,13 +28,23 @@ app.add_middleware(
         "http://127.0.0.1:5173"
     ],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=[
+        "GET",
+        "POST",
+        "PUT",
+        "DELETE"
+    ],
+    allow_headers=[
+        "Content-Type",
+        "Authorization"
+    ],
 )
 
-# Register Profile API routes
+
+# Register API routes
 app.include_router(profiles_router)
 app.include_router(recommendations_router)
+
 
 @app.get("/")
 def home():
