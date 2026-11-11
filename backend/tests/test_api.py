@@ -208,3 +208,31 @@ def test_create_profile_with_oversized_full_name(client):
     )
 
     assert response.status_code == 422
+def test_recommendations_use_latest_profile(client):
+    # Create the first profile
+    client.post(
+        "/api/profiles/",
+        json={
+            "linkedin_profile": "Java developer",
+            "career_goals": "Become a Java Developer",
+            "preferred_roles": "Java Developer",
+        },
+    )
+
+    # Create the latest profile
+    latest_response = client.post(
+        "/api/profiles/",
+        json={
+            "linkedin_profile": "Python, SQL, Machine Learning",
+            "career_goals": "Become a Data Scientist",
+            "preferred_roles": "Data Analyst, AI Engineer",
+        },
+    )
+
+    latest_profile_id = latest_response.json()["id"]
+
+    # Generate recommendations
+    response = client.get("/api/recommendations/")
+
+    assert response.status_code == 200
+    assert response.json()["profile_id"] == latest_profile_id
