@@ -2,15 +2,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from database import Base, engine
-import models
-
 from routers.profiles import router as profiles_router
 from routers.recommendations import router as recommendations_router
-
-
-# Create database tables
-Base.metadata.create_all(bind=engine)
 
 
 app = FastAPI(
