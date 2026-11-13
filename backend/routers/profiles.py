@@ -1,9 +1,11 @@
-﻿from fastapi import APIRouter, Depends, HTTPException
+﻿
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import UserProfile
+from models import User, UserProfile
 from schemas import UserProfileCreate, UserProfileResponse
+from dependencies import get_current_user
 
 
 router = APIRouter(
@@ -12,13 +14,17 @@ router = APIRouter(
 )
 
 
-# Create a new profile
+# Create a profile for the logged-in user
 @router.post("/", response_model=UserProfileResponse)
 def create_profile(
     profile: UserProfileCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    new_profile = UserProfile(**profile.model_dump())
+    new_profile = UserProfile(
+        **profile.model_dump(),
+        user_id=current_user.id,
+    )
 
     db.add(new_profile)
     db.commit()
@@ -27,43 +33,65 @@ def create_profile(
     return new_profile
 
 
-# Get all profiles
+# Get only the logged-in user's profiles
 @router.get("/", response_model=list[UserProfileResponse])
-def get_profiles(db: Session = Depends(get_db)):
-    return db.query(UserProfile).all()
+def get_profiles(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return (
+        db.query(UserProfile)
+        .filter(UserProfile.user_id == current_user.id)
+        .all()
+    )
 
 
-# Get a profile by ID
+# Get a profile only if it belongs to the logged-in user
 @router.get("/{profile_id}", response_model=UserProfileResponse)
-def get_profile(profile_id: int, db: Session = Depends(get_db)):
-    profile = db.query(UserProfile).filter(
-        UserProfile.id == profile_id
-    ).first()
+def get_profile(
+    profile_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    profile = (
+        db.query(UserProfile)
+        .filter(
+            UserProfile.id == profile_id,
+            UserProfile.user_id == current_user.id,
+        )
+        .first()
+    )
 
     if profile is None:
         raise HTTPException(
             status_code=404,
-            detail="Profile not found"
+            detail="Profile not found",
         )
 
     return profile
 
 
-# Update a profile
+# Update only the logged-in user's profile
 @router.put("/{profile_id}", response_model=UserProfileResponse)
 def update_profile(
     profile_id: int,
     updated_data: UserProfileCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    profile = db.query(UserProfile).filter(
-        UserProfile.id == profile_id
-    ).first()
+    profile = (
+        db.query(UserProfile)
+        .filter(
+            UserProfile.id == profile_id,
+            UserProfile.user_id == current_user.id,
+        )
+        .first()
+    )
 
     if profile is None:
         raise HTTPException(
             status_code=404,
-            detail="Profile not found"
+            detail="Profile not found",
         )
 
     for key, value in updated_data.model_dump().items():
@@ -75,17 +103,26 @@ def update_profile(
     return profile
 
 
-# Delete a profile
+# Delete only the logged-in user's profile
 @router.delete("/{profile_id}")
-def delete_profile(profile_id: int, db: Session = Depends(get_db)):
-    profile = db.query(UserProfile).filter(
-        UserProfile.id == profile_id
-    ).first()
+def delete_profile(
+    profile_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    profile = (
+        db.query(UserProfile)
+        .filter(
+            UserProfile.id == profile_id,
+            UserProfile.user_id == current_user.id,
+        )
+        .first()
+    )
 
     if profile is None:
         raise HTTPException(
             status_code=404,
-            detail="Profile not found"
+            detail="Profile not found",
         )
 
     db.delete(profile)
