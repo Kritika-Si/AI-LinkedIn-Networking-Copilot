@@ -2,6 +2,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from routers.auth import router as auth_router
 from routers.profiles import router as profiles_router
 from routers.recommendations import router as recommendations_router
 
@@ -35,6 +36,7 @@ app.add_middleware(
 
 
 # Register API routes
+app.include_router(auth_router)
 app.include_router(profiles_router)
 app.include_router(recommendations_router)
 
