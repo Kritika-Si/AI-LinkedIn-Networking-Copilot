@@ -18,8 +18,8 @@ import models
 
 
 @pytest.fixture
-def client(tmp_path):
-    """Create an isolated SQLite database for each API test."""
+def unauthenticated_client(tmp_path):
+    """Create an isolated SQLite database and an unauthenticated client."""
 
     test_database_path = tmp_path / "test_networking.db"
 
@@ -34,7 +34,6 @@ def client(tmp_path):
         bind=test_engine,
     )
 
-    # Ensure the application's startup table creation uses the test engine.
     database.engine = test_engine
 
     database.Base.metadata.create_all(bind=test_engine)
@@ -56,3 +55,40 @@ def client(tmp_path):
     finally:
         app.dependency_overrides.clear()
         test_engine.dispose()
+
+
+@pytest.fixture
+def client(unauthenticated_client):
+    """Create a client authenticated as the default test user."""
+
+    response = unauthenticated_client.post(
+        "/api/auth/register",
+        json={
+            "full_name": "Test User",
+            "email": "testuser@example.com",
+            "password": "TestPassword123!",
+        },
+    )
+
+    assert response.status_code == 201, response.text
+
+    return unauthenticated_client
+
+
+@pytest.fixture
+def second_client(client):
+    """Create a second authenticated user sharing the same test database."""
+
+    with TestClient(client.app) as test_client:
+        response = test_client.post(
+            "/api/auth/register",
+            json={
+                "full_name": "Second User",
+                "email": "seconduser@example.com",
+                "password": "SecondPassword123!",
+            },
+        )
+
+        assert response.status_code == 201, response.text
+
+        yield test_client
