@@ -183,12 +183,9 @@ def test_recommendations_use_only_logged_in_users_profile(
 
     first_profile_id = first_profile.json()["id"]
 
-    # The second user has no profile yet.
     second_response = second_client.get("/api/recommendations/")
-
     assert second_response.status_code == 404
 
-    # Create a separate profile for the second user.
     second_profile = second_client.post(
         "/api/profiles/",
         json={
@@ -202,7 +199,6 @@ def test_recommendations_use_only_logged_in_users_profile(
 
     second_profile_id = second_profile.json()["id"]
 
-    # Each user receives recommendations based on their own profile.
     first_recommendations = client.get("/api/recommendations/")
     second_recommendations = second_client.get("/api/recommendations/")
 
@@ -213,3 +209,45 @@ def test_recommendations_use_only_logged_in_users_profile(
     assert second_recommendations.json()["profile_id"] == second_profile_id
 
     assert first_profile_id != second_profile_id
+
+
+def test_rejects_untrusted_origin(unauthenticated_client):
+    response = unauthenticated_client.post(
+        "/api/auth/register",
+        headers={"Origin": "https://evil.example"},
+        json={
+            "full_name": "Untrusted User",
+            "email": "untrusted@example.com",
+            "password": "UntrustedPassword123!",
+        },
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Request origin is not allowed."
+
+
+def test_allows_trusted_frontend_origin(unauthenticated_client):
+    response = unauthenticated_client.post(
+        "/api/auth/register",
+        headers={"Origin": "http://localhost:5173"},
+        json={
+            "full_name": "Frontend User",
+            "email": "frontend@example.com",
+            "password": "FrontendPassword123!",
+        },
+    )
+
+    assert response.status_code == 201
+
+
+def test_allows_request_without_origin_header(unauthenticated_client):
+    response = unauthenticated_client.post(
+        "/api/auth/register",
+        json={
+            "full_name": "API User",
+            "email": "apiuser@example.com",
+            "password": "ApiUserPassword123!",
+        },
+    )
+
+    assert response.status_code == 201
