@@ -1,10 +1,18 @@
-﻿from fastapi import APIRouter, Depends, HTTPException, Response, status
+﻿
+import os
+
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
 from database import get_db
 from models import User
 from schemas import UserRegister, UserLogin, AuthUserResponse
-from security import hash_password, verify_password, create_access_token
+from security import (
+    hash_password,
+    verify_password,
+    create_access_token,
+    ACCESS_TOKEN_EXPIRE_MINUTES,
+)
 from dependencies import get_current_user
 
 
@@ -12,15 +20,19 @@ router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
 COOKIE_NAME = "session_token"
 
+# Use secure cookies in production when HTTPS is enabled.
+COOKIE_SECURE = os.getenv("COOKIE_SECURE", "false").lower() == "true"
+
 
 def set_session_cookie(response: Response, token: str):
+    """Set a secure session cookie for the authenticated user."""
     response.set_cookie(
         key=COOKIE_NAME,
         value=token,
         httponly=True,
-        secure=False,  # Set to True when deployed with HTTPS
+        secure=COOKIE_SECURE,
         samesite="lax",
-        max_age=60 * 60,
+        max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         path="/",
     )
 
@@ -103,7 +115,7 @@ def logout(response: Response):
         key=COOKIE_NAME,
         path="/",
         httponly=True,
-        secure=False,
+        secure=COOKIE_SECURE,
         samesite="lax",
     )
 
