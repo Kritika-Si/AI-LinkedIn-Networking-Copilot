@@ -1,8 +1,9 @@
 ﻿
 import { useState, useEffect } from 'react'
 import './App.css'
+import Auth from './Auth'
 
-const API_BASE_URL = 'http://127.0.0.1:8000'
+const API_BASE_URL = 'http://localhost:8000'
 
 const defaultPerson = {
   name: 'Professional',
@@ -17,6 +18,10 @@ const defaultPerson = {
 
 function App() {
   const [activePage, setActivePage] = useState('Dashboard')
+
+  // Authentication states
+  const [user, setUser] = useState(null)
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true)
 
   // Profile states
   const [profile, setProfile] = useState('')
@@ -44,14 +49,8 @@ function App() {
   const [connectionReason, setConnectionReason] = useState('')
 
   // Activity history
-  const [activities, setActivities] = useState(() => {
-    try {
-      const savedActivities = localStorage.getItem('netwiseActivities')
-      return savedActivities ? JSON.parse(savedActivities) : []
-    } catch {
-      return []
-    }
-  })
+  const [activities, setActivities] = useState([])
+  const [isActivityLoaded, setIsActivityLoaded] = useState(false)
 
   const messagesGenerated = activities.filter(
     (activity) => activity.type === 'message_generated'
@@ -67,14 +66,42 @@ function App() {
     (profileCompleteness / 3) * 100
   )
 
-  // Save activity history
+  // Load activity history separately for each signed-in user
   useEffect(() => {
+    if (!user) {
+      setActivities([])
+      setIsActivityLoaded(false)
+      return
+    }
+
+    setIsActivityLoaded(false)
+
     try {
-      localStorage.setItem('netwiseActivities', JSON.stringify(activities))
+      const storageKey = `netwiseActivities_${user.id}`
+      const savedActivities = localStorage.getItem(storageKey)
+
+      setActivities(savedActivities ? JSON.parse(savedActivities) : [])
+    } catch (error) {
+      console.error('Could not load activity history:', error)
+      setActivities([])
+    } finally {
+      setIsActivityLoaded(true)
+    }
+  }, [user])
+
+  // Save activity history for the signed-in user only
+  useEffect(() => {
+    if (!user || !isActivityLoaded) return
+
+    try {
+      localStorage.setItem(
+        `netwiseActivities_${user.id}`,
+        JSON.stringify(activities)
+      )
     } catch (error) {
       console.error('Could not save activity history:', error)
     }
-  }, [activities])
+  }, [activities, user, isActivityLoaded])
 
   // Record networking activity
   const recordActivity = (type, title, description) => {
@@ -108,7 +135,10 @@ function App() {
       setRecommendationError('')
 
       const response = await fetch(
-        `${API_BASE_URL}/api/recommendations/`
+        `${API_BASE_URL}/api/recommendations/`,
+        {
+          credentials: 'include',
+        }
       )
 
       const result = await response.json()
@@ -130,20 +160,52 @@ function App() {
       }
     } catch (error) {
       console.error('Recommendation loading error:', error)
+
       setRecommendationError(
         error.message || 'Could not connect to the recommendations API.'
       )
+
       setConnections([])
     } finally {
       setIsLoadingConnections(false)
     }
   }
 
+  // Check whether the user is already authenticated
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+          credentials: 'include',
+        })
+
+        if (!response.ok) {
+          setUser(null)
+          return
+        }
+
+        const currentUser = await response.json()
+        setUser(currentUser)
+      } catch (error) {
+        console.error('Authentication check error:', error)
+        setUser(null)
+      } finally {
+        setIsCheckingAuth(false)
+      }
+    }
+
+    checkAuth()
+  }, [])
+
   // Load the latest saved profile first, then load recommendations
   useEffect(() => {
+    if (!user) return
+
     const loadProfile = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/profiles/`)
+        const response = await fetch(`${API_BASE_URL}/api/profiles/`, {
+          credentials: 'include',
+        })
 
         if (!response.ok) {
           throw new Error('Unable to load profile information.')
@@ -176,6 +238,7 @@ function App() {
         setRecommendationError(
           'Unable to load your profile. Please check the backend.'
         )
+
         setConnections([])
         setIsLoadingConnections(false)
       } finally {
@@ -184,7 +247,7 @@ function App() {
     }
 
     loadProfile()
-  }, [])
+  }, [user])
 
   // Save a new profile or update an existing profile
   const handleSaveProfile = async () => {
@@ -192,6 +255,7 @@ function App() {
       setProfileStatus(
         'Please enter your LinkedIn profile information.'
       )
+
       setProfileStatusType('error')
       return
     }
@@ -217,6 +281,7 @@ function App() {
           headers: {
             'Content-Type': 'application/json',
           },
+          credentials: 'include',
           body: JSON.stringify(profileData),
         }
       )
@@ -237,6 +302,7 @@ function App() {
           ? 'Profile updated successfully!'
           : 'Profile saved successfully!'
       )
+
       setProfileStatusType('success')
 
       // Refresh recommendations after saving
@@ -247,9 +313,40 @@ function App() {
       setProfileStatus(
         error.message || 'Unable to save your profile.'
       )
+
       setProfileStatusType('error')
     } finally {
       setIsSavingProfile(false)
+    }
+  }
+
+  // Log out the current user
+  const handleLogout = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/logout`, {
+        method: 'POST',
+        credentials: 'include',
+      })
+
+      if (!response.ok) {
+        throw new Error('Unable to log out. Please try again.')
+      }
+
+      setUser(null)
+      setActivePage('Dashboard')
+      setProfile('')
+      setCareerGoal('')
+      setPreferredRoles('')
+      setProfileId(null)
+      setConnections([])
+      setActivities([])
+      setMessage('')
+      setRecommendationError('')
+      setProfileStatus('')
+      setIsLoadingProfile(true)
+    } catch (error) {
+      console.error('Logout error:', error)
+      alert(error.message || 'Unable to log out. Please try again.')
     }
   }
 
@@ -359,6 +456,37 @@ function App() {
     </div>
   )
 
+  // Show a loading screen while checking the login session
+  if (isCheckingAuth) {
+    return (
+      <div
+        className="auth-loading"
+        style={{
+          minHeight: '100vh',
+          display: 'grid',
+          placeItems: 'center',
+          fontFamily: 'inherit',
+          color: '#252b45',
+        }}
+      >
+        Checking your session...
+      </div>
+    )
+  }
+
+  // Show login/register page when the user is not logged in
+  if (!user) {
+    return <Auth onAuthenticated={setUser} />
+  }
+
+  // Create initials from the signed-in user's name
+  const userInitials = (user.full_name || user.email || 'U')
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join('')
+
   return (
     <div className="app-layout">
       <aside className="sidebar">
@@ -399,12 +527,30 @@ function App() {
           </div>
 
           <div className="user-profile">
-            <div className="user-avatar">KK</div>
+            <div className="user-avatar">{userInitials}</div>
+
             <div className="user-info">
-              <strong>Your Workspace</strong>
-              <span>Free Plan</span>
+              <strong>{user.full_name}</strong>
+              <span>{user.email}</span>
             </div>
-            <span className="more-icon">...</span>
+
+            <button
+              className="logout-button"
+              type="button"
+              onClick={handleLogout}
+              title="Log out"
+              aria-label="Log out"
+              style={{
+                border: 'none',
+                background: 'transparent',
+                color: 'inherit',
+                cursor: 'pointer',
+                font: 'inherit',
+                padding: '6px',
+              }}
+            >
+              Log out
+            </button>
           </div>
         </div>
       </aside>
@@ -428,7 +574,7 @@ function App() {
               <i></i>
             </button>
 
-            <div className="top-avatar">KK</div>
+            <div className="top-avatar">{userInitials}</div>
           </div>
         </header>
 
@@ -548,6 +694,7 @@ function App() {
                                 : 'purple-dot'
                             }`}
                           ></span>
+
                           <div>
                             <strong>{activity.title}</strong>
                             <p>{activity.description}</p>
@@ -568,6 +715,7 @@ function App() {
 
               <section className="quick-start panel">
                 <div className="quick-start-icon">*</div>
+
                 <div>
                   <h2>Ready to grow your network?</h2>
                   <p>Start by adding your LinkedIn profile and career goals.</p>
@@ -754,6 +902,7 @@ function App() {
                 >
                   <div className="form-group">
                     <label htmlFor="messageType">Message type</label>
+
                     <select
                       id="messageType"
                       value={messageType}
@@ -770,6 +919,7 @@ function App() {
                       <option value="Recruiter Outreach">
                         Recruiter outreach
                       </option>
+
                       <option value="Professional Networking">
                         Professional networking
                       </option>
@@ -778,6 +928,7 @@ function App() {
 
                   <div className="form-group">
                     <label htmlFor="messageTone">Message tone</label>
+
                     <select
                       id="messageTone"
                       value={messageTone}
@@ -801,6 +952,7 @@ function App() {
                     <label htmlFor="connectionReason">
                       Why do you want to connect? (optional)
                     </label>
+
                     <textarea
                       id="connectionReason"
                       rows="3"
@@ -924,6 +1076,7 @@ function App() {
                               : 'purple-dot'
                           }`}
                         ></span>
+
                         <div>
                           <strong>{activity.title}</strong>
                           <p>{activity.description}</p>
