@@ -7,6 +7,10 @@ from routers.auth import router as auth_router
 from routers.profiles import router as profiles_router
 from routers.recommendations import router as recommendations_router
 
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+
+from rate_limiter import limiter
 
 ALLOWED_ORIGINS = [
     "http://localhost:5173",
@@ -19,7 +23,12 @@ app = FastAPI(
     description="An AI-powered assistant for professional networking.",
     version="1.0.0"
 )
-
+# Configure API rate limiting.
+app.state.limiter = limiter
+app.add_exception_handler(
+    RateLimitExceeded,
+    _rate_limit_exceeded_handler,
+)
 
 # Validate browser origins for state-changing requests.
 @app.middleware("http")
