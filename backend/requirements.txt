@@ -10,3 +10,5 @@ sentence-transformers
 alembic
 pwdlib[argon2]
 PyJWT
+
+slowapi==0.1.10
