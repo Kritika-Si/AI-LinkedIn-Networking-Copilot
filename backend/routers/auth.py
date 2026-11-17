@@ -1,9 +1,9 @@
 ﻿
 import os
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
-
+from rate_limiter import limiter
 from database import get_db
 from models import User
 from schemas import UserRegister, UserLogin, AuthUserResponse
