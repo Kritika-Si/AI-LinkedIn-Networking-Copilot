@@ -251,3 +251,71 @@ def test_allows_request_without_origin_header(unauthenticated_client):
     )
 
     assert response.status_code == 201
+
+
+def test_registration_rate_limit(unauthenticated_client):
+    # The first five registration requests should succeed.
+    for number in range(1, 6):
+        response = unauthenticated_client.post(
+            "/api/auth/register",
+            json={
+                "full_name": f"Rate Limit User {number}",
+                "email": f"ratelimit{number}@example.com",
+                "password": "RateLimitPassword123!",
+            },
+        )
+
+        assert response.status_code == 201, response.text
+
+    # The sixth registration request should be blocked.
+    response = unauthenticated_client.post(
+        "/api/auth/register",
+        json={
+            "full_name": "Sixth User",
+            "email": "ratelimit6@example.com",
+            "password": "RateLimitPassword123!",
+        },
+    )
+
+    assert response.status_code == 429
+    assert "Rate limit exceeded" in response.json()["error"]
+
+
+def test_login_rate_limit(unauthenticated_client):
+    # Create a user before testing login limits.
+    register_response = unauthenticated_client.post(
+        "/api/auth/register",
+        json={
+            "full_name": "Login Rate Limit User",
+            "email": "loginratelimit@example.com",
+            "password": "RateLimitPassword123!",
+        },
+    )
+
+    assert register_response.status_code == 201
+
+    unauthenticated_client.post("/api/auth/logout")
+
+    # The first five login requests should succeed.
+    for _ in range(5):
+        response = unauthenticated_client.post(
+            "/api/auth/login",
+            json={
+                "email": "loginratelimit@example.com",
+                "password": "RateLimitPassword123!",
+            },
+        )
+
+        assert response.status_code == 200, response.text
+
+    # The sixth login request should be blocked.
+    response = unauthenticated_client.post(
+        "/api/auth/login",
+        json={
+            "email": "loginratelimit@example.com",
+            "password": "RateLimitPassword123!",
+        },
+    )
+
+    assert response.status_code == 429
+    assert "Rate limit exceeded" in response.json()["error"]
