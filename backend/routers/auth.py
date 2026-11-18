@@ -3,6 +3,7 @@ import os
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
+
 from rate_limiter import limiter
 from database import get_db
 from models import User
@@ -42,7 +43,9 @@ def set_session_cookie(response: Response, token: str):
     response_model=AuthUserResponse,
     status_code=status.HTTP_201_CREATED,
 )
+@limiter.limit("5/minute")
 def register(
+    request: Request,
     user_data: UserRegister,
     response: Response,
     db: Session = Depends(get_db),
@@ -76,7 +79,9 @@ def register(
 
 
 @router.post("/login", response_model=AuthUserResponse)
+@limiter.limit("5/minute")
 def login(
+    request: Request,
     user_data: UserLogin,
     response: Response,
     db: Session = Depends(get_db),
