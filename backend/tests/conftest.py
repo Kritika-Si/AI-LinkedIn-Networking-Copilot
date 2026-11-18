@@ -15,6 +15,13 @@ if str(BACKEND_DIR) not in sys.path:
 
 import database
 import models
+from rate_limiter import limiter
+
+
+@pytest.fixture(autouse=True)
+def reset_rate_limits():
+    """Reset in-memory rate-limit counters before every test."""
+    limiter._storage.reset()
 
 
 @pytest.fixture
