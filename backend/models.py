@@ -51,8 +51,8 @@ class UserProfile(Base):
         Integer,
         ForeignKey(
             "users.id",
-             ondelete="CASCADE",
-             name="fk_user_profiles_user_id_users",
+            ondelete="CASCADE",
+            name="fk_user_profiles_user_id_users",
         ),
         nullable=True,
         index=True,
@@ -84,4 +84,25 @@ class UserProfile(Base):
     owner = relationship(
         "User",
         back_populates="profiles",
+    )
+
+
+class RevokedToken(Base):
+    __tablename__ = "revoked_tokens"
+
+    jti = Column(
+        String(64),
+        primary_key=True,
+    )
+
+    expires_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        index=True,
+    )
+
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
     )
