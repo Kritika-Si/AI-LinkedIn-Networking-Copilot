@@ -2,6 +2,8 @@
 from pathlib import Path
 import os
 
+import uuid
+
 import jwt
 from dotenv import load_dotenv
 from pwdlib import PasswordHash
@@ -36,17 +38,21 @@ def verify_password(password: str, hashed_password: str) -> bool:
 
 
 def create_access_token(user_id: int) -> str:
-    """Create a signed JWT for an authenticated user."""
     expires_at = datetime.now(timezone.utc) + timedelta(
         minutes=ACCESS_TOKEN_EXPIRE_MINUTES
     )
 
     payload = {
         "sub": str(user_id),
+        "jti": uuid.uuid4().hex,
         "exp": expires_at,
     }
 
-    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+    return jwt.encode(
+        payload,
+        SECRET_KEY,
+        algorithm=ALGORITHM,
+    )
 
 
 def decode_access_token(token: str) -> dict | None:
