@@ -1,8 +1,9 @@
-﻿from fastapi import Cookie, Depends, HTTPException, status
+﻿
+from fastapi import Cookie, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import User
+from models import User, RevokedToken
 from security import decode_access_token
 
 
@@ -10,7 +11,6 @@ def get_current_user(
     session_token: str | None = Cookie(default=None),
     db: Session = Depends(get_db),
 ) -> User:
-    """Return the authenticated user from the session cookie."""
 
     credentials_error = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -27,8 +27,19 @@ def get_current_user(
         raise credentials_error
 
     user_id = payload.get("sub")
+    token_id = payload.get("jti")
 
-    if not user_id:
+    if not user_id or not token_id:
+        raise credentials_error
+
+    # Check whether this JWT has been revoked.
+    revoked_token = (
+        db.query(RevokedToken)
+        .filter(RevokedToken.jti == token_id)
+        .first()
+    )
+
+    if revoked_token is not None:
         raise credentials_error
 
     try:
